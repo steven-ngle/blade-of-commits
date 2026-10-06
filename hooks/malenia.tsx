@@ -142,6 +142,12 @@ const scene = (phase: Phase, t: number, since: number, size: StageSize): Grid =>
   return phase === 'error' ? g.map(c => (c === null ? null : grey(c))) : g
 }
 
+// One frame as rows of colors (null = empty), for tests and for recording the README's GIFs.
+export const frame = (phase: Phase, t: number, since: number, size: StageSize) => {
+  const g = scene(phase, t, since, size)
+  return Array.from({ length: H }, (_, y) => g.slice(y * W, (y + 1) * W))
+}
+
 const Stage: ClientModule<Props, State> = (props, surface) => {
   const { Box, Text } = surface.elements
   const state = surface.state

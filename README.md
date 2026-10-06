@@ -10,9 +10,12 @@ A commit button for [Claude Code](https://claude.com/claude-code). When Claude f
 
 *Ready, writing the message, committed: the animations exactly as the desktop app draws them.*
 
-In the terminal she is drawn with half-block characters:
+In the terminal she is drawn with half-block characters, large when the band has room and hand-drawn small otherwise:
 
-![Malenia's idle animation in the terminal](docs/terminal-animation.png)
+| | Ready | Writing the message | Committed |
+| --- | --- | --- | --- |
+| **Large** | <img src="docs/terminal-large-ready.gif" alt="Terminal, large: at rest" width="210"> | <img src="docs/terminal-large-thinking.gif" alt="Terminal, large: Waterfowl Dance" width="210"> | <img src="docs/terminal-large-done.gif" alt="Terminal, large: Scarlet Aeonia" width="210"> |
+| **Small** | <img src="docs/terminal-small-ready.gif" alt="Terminal, small: at rest" width="200"> | <img src="docs/terminal-small-thinking.gif" alt="Terminal, small: Waterfowl Dance" width="200"> | <img src="docs/terminal-small-done.gif" alt="Terminal, small: Scarlet Aeonia" width="200"> |
 
 ## What it does
 
@@ -35,6 +38,7 @@ Hotkeys work while the band has the focus: click into it (in the terminal also `
 
 - Claude Code **2.1.288 or newer**. The mod is written against Claude Code's function-hook plugin API, which is in early access and may change between releases.
 - A git repository as the session's working directory.
+- macOS or Linux (the mod uses `mktemp` and `rm` for the commit message file).
 - The message is written by `haiku` through your own Claude Code session, so each suggestion costs a small amount of usage.
 
 ## Install
@@ -74,6 +78,18 @@ Several folders are separated by `:` on macOS and Linux, `;` on Windows.
 - Files you change yourself are never staged; a file you had already modified before the task is committed whole if Claude also edited it.
 - Commit messages are written in English.
 
+## Security
+
+The mod reads diffs of whatever repository you work in, so it treats the repository and the model's reply as untrusted:
+
+- **The suggestion never becomes an instruction.** The commit message is written to a fresh temporary file (`mktemp`, readable only by you), and Claude is only asked to run `git add -- <files>` and `git commit -F <that file>`. Text in a diff that tries to steer the model can at worst produce a strange message, which you see before you press *Commit*.
+- **No code from the repository runs through the mod.** Every git call passes `-c core.fsmonitor=false`, and every diff `--no-ext-diff --no-textconv`, so a repository's own `.git/config` cannot make git start a program. Commands run as argument lists, never through a shell.
+- **Nothing reaches your terminal raw.** Control characters (escape sequences included) are stripped from the message before it is shown or written.
+- **Odd paths are skipped.** A file whose name contains control characters or backticks is never tracked; the paths in Claude's commands are shell-quoted.
+- **Your git hooks still run**, because Claude commits with git as usual. In a repository you do not trust, its hooks are as dangerous as always.
+
+The diff of the tracked files, plus the text of your prompts in the task, is sent to Haiku through your own Claude Code session, the same place your conversation already goes.
+
 ## Development
 
 ```
@@ -98,7 +114,7 @@ npx -p typescript tsc -p .
 
 `tsc` needs the type declarations Claude Code writes into `.claude-plugin/types/` the first time it loads the mod.
 
-The animated SVGs in `docs/` are the output of `stageSvg()` in `hooks/stage-svg.ts`.
+The animated SVGs in `docs/` are the output of `stageSvg()` in `hooks/stage-svg.ts`; the terminal GIFs are frames recorded from `frame()` in `hooks/malenia.tsx`.
 
 To change Malenia, edit the shapes (or the hand-drawn small variant) in `tools/sprites/build.py` and run it; it needs nothing but Python 3:
 

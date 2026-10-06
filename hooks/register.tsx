@@ -20,7 +20,22 @@ Then a blank line and 1-4 short bullet points ("- ...") explaining what changed 
 only when the change is not trivial. Write in English.
 Reply with the commit message only: no code fences, no preamble.`
 
-const git = ($: EngineInterface, args: string[]) => $.process.run(['git', ...args])
+// core.fsmonitor in a repository's own .git/config names a program git would run on
+// every status: never let a repository run code through the mod's git calls.
+const git = ($: EngineInterface, args: string[]) =>
+  $.process.run(['git', '-c', 'core.fsmonitor=false', ...args])
+
+// Diffs never run a repository's external diff or textconv programs either.
+const DIFF = ['diff', '--no-ext-diff', '--no-textconv']
+
+// Text from the model or the repository is shown in the band: keep line breaks and tabs,
+// drop every other control character (terminal escape sequences included).
+const printable = (text: string) => text.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '')
+
+// A path that could break out of the commit instructions is never tracked.
+const isSafePath = (path: string) => path.length > 0 && !/[\u0000-\u001f\u007f`]/.test(path)
+
+const shellQuote = (text: string) => `'${text.replace(/'/g, `'\\''`)}'`
 
 const baseName = (path: string) => path.split('/').pop() ?? path
 
@@ -42,12 +57,15 @@ const head = async ($: EngineInterface) => {
   return r.exitCode === 0 ? r.stdout.trim() : ''
 }
 
+const MAX_MESSAGE = 2000
+
 const clean = (text: string) =>
-  text
+  printable(text)
     .trim()
     .replace(/^```[a-z]*\n?/i, '')
     .replace(/\n?```$/, '')
     .trim()
+    .slice(0, MAX_MESSAGE)
 
 const reset = async ($: EngineInterface) => {
   await update($, files, () => [])
@@ -68,13 +86,13 @@ const propose = async ($: EngineInterface) => {
   await update($, phase, () => 'thinking')
 
   const hasHead = (await head($)) !== ''
-  const base = hasHead ? ['diff', 'HEAD'] : ['diff', '--cached']
+  const base = hasHead ? [...DIFF, 'HEAD'] : [...DIFF, '--cached']
   const stat = await git($, [...base, '--stat', '--', ...list])
   const tracked = await git($, [...base, '--', ...list])
   const untracked = await git($, ['ls-files', '--others', '--exclude-standard', '--', ...list])
   const fresh = untracked.stdout.split('\n').filter(Boolean)
   const added = await Promise.all(
-    fresh.map(f => git($, ['diff', '--no-index', '--', '/dev/null', f]).then(r => r.stdout)),
+    fresh.map(f => git($, [...DIFF, '--no-index', '--', '/dev/null', f]).then(r => r.stdout)),
   )
 
   let diff = [tracked.stdout, ...added].join('\n')
@@ -99,28 +117,46 @@ const propose = async ($: EngineInterface) => {
 }
 
 const track = async ($: EngineInterface, path: string) => {
+  if (!isSafePath(path)) return
   await update($, files, list => (list.includes(path) ? list : [...list, path]))
 }
 
 let headBefore = ''
+let messageFile = ''
+
+const removeMessageFile = async ($: EngineInterface) => {
+  if (messageFile === '') return
+  await $.process.run(['rm', '-f', '--', messageFile])
+  messageFile = ''
+}
 
 const commit = async ($: EngineInterface) => {
   const p = await read($, proposal)
   if (p === null) return
+  const paths = p.files.filter(isSafePath)
+  if (paths.length === 0) return fail($, 'None of the changed files can be committed safely.')
+
+  // The message goes to git through a file, never through Claude's prompt: text the model
+  // wrote from a diff (which a repository controls) must not reach Claude as instructions.
+  // mktemp creates a new file only this user can read, so nothing can be planted there.
+  const made = await $.process.run(['mktemp', '-t', 'blade-of-commits.XXXXXXXX'])
+  const path = made.stdout.trim()
+  if (made.exitCode !== 0 || path === '') return fail($, 'Could not create a temporary file for the commit message.')
+  await $.fs.write(path, `${p.message}\n`)
+  messageFile = path
+
   headBefore = await head($)
   await update($, phase, () => 'committing')
-  const fileList = p.files.map(f => `- ${f}`).join('\n')
   await $.prompt.submit({
     text: [
-      'Please commit exactly these files now. Stage only these (`git add -- <files>`), no other changes:',
-      fileList,
-      '',
-      'Use exactly this commit message (via a HEREDOC so the line breaks survive):',
+      'Please commit the files of the last task now. Run exactly these two commands:',
       '',
       '```',
-      p.message,
+      `git add -- ${paths.map(shellQuote).join(' ')}`,
+      `git commit -F ${shellQuote(path)}`,
       '```',
       '',
+      'The commit message is already in that file; do not change it and stage nothing else.',
       'If a pre-commit hook fails, do not fix anything on your own; just report what happened.',
     ].join('\n'),
   })
@@ -176,6 +212,7 @@ export const register: Register = on => {
 
     const p = await read($, phase)
     if (p === 'committing') {
+      await removeMessageFile($)
       const now = await head($)
       if (now !== '' && now !== headBefore) {
         await update($, note, () => now)
