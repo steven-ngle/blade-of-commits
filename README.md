@@ -65,7 +65,7 @@ claude --plugin-dir ~/blade-of-commits
 }
 ```
 
-Several folders are separated by `:` on macOS and Linux, `;` on Windows.
+Several folders are separated by `:`.
 
 ## How it looks where
 
