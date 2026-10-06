@@ -3,12 +3,16 @@
 A commit button for [Claude Code](https://claude.com/claude-code). When Claude finishes a task that changed files, a band appears above the prompt: one click suggests a clean commit message for exactly those changes, a second click has Claude commit them. A pixel-art Malenia, Blade of Miquella, keeps you company while it happens.
 
 <p>
-  <img src="docs/malenia-desktop.png" alt="Pixel-art Malenia as drawn in the desktop app" height="240">
-  &nbsp;
-  <img src="docs/malenia-terminal-large.png" alt="Pixel-art Malenia, large terminal variant" height="240">
+  <img src="docs/malenia-ready.svg" alt="Malenia at rest: wings flap, hair and cape sway" width="256">
+  <img src="docs/malenia-thinking.svg" alt="Malenia's Waterfowl Dance while the commit message is written" width="256">
+  <img src="docs/malenia-done.svg" alt="Scarlet Aeonia blooms when the commit lands" width="256">
 </p>
 
-![Malenia's idle animation in the terminal: wings flap, hair and cape sway](docs/terminal-animation.png)
+*Ready, writing the message, committed: the animations exactly as the desktop app draws them.*
+
+In the terminal she is drawn with half-block characters:
+
+![Malenia's idle animation in the terminal](docs/terminal-animation.png)
 
 ## What it does
 
@@ -38,7 +42,7 @@ Hotkeys work while the band has the focus: click into it (in the terminal also `
 Clone the repository somewhere permanent:
 
 ```bash
-git clone https://github.com/<you>/blade-of-commits.git ~/blade-of-commits
+git clone https://github.com/steven-ngle/blade-of-commits.git ~/blade-of-commits
 ```
 
 **Terminal, one session:**
@@ -94,6 +98,8 @@ npx -p typescript tsc -p .
 
 `tsc` needs the type declarations Claude Code writes into `.claude-plugin/types/` the first time it loads the mod.
 
+The animated SVGs in `docs/` are the output of `stageSvg()` in `hooks/stage-svg.ts`.
+
 To change Malenia, edit the shapes (or the hand-drawn small variant) in `tools/sprites/build.py` and run it; it needs nothing but Python 3:
 
 ```bash
@@ -103,3 +109,7 @@ python3 tools/sprites/build.py
 ## Disclaimer
 
 An unofficial fan project. Malenia and Elden Ring belong to FromSoftware and Bandai Namco; this project is not affiliated with or endorsed by them. The pixel art is original and contains no game assets.
+
+## License
+
+[MIT](LICENSE)

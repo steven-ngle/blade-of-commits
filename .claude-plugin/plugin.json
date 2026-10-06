@@ -2,7 +2,19 @@
   "name": "blade-of-commits",
   "version": "0.1.0",
   "description": "A commit button above the Claude Code prompt: suggests a clean commit message for the last task, Claude commits it, and a pixel-art Malenia dances while it happens.",
-  "author": { "name": "Steven" },
-  "keywords": ["git", "commit", "commit-message", "pixel-art", "elden-ring"],
+  "author": {
+    "name": "Steven",
+    "url": "https://github.com/steven-ngle"
+  },
+  "homepage": "https://github.com/steven-ngle/blade-of-commits",
+  "repository": "https://github.com/steven-ngle/blade-of-commits",
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "commit",
+    "commit-message",
+    "pixel-art",
+    "elden-ring"
+  ],
   "types": "./types/index.d.ts"
 }
